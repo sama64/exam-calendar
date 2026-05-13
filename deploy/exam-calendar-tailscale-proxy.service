@@ -1,0 +1,18 @@
+[Unit]
+Description=Tailnet-only proxy for exam calendar
+After=tailscaled.service exam-calendar.service
+Wants=exam-calendar.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sam/projects/exam-calendar
+Environment=TAILSCALE_PROXY_BIND=100.118.207.80
+Environment=TAILSCALE_PROXY_PORT=8765
+Environment=TAILSCALE_PROXY_TARGET_HOST=127.0.0.1
+Environment=TAILSCALE_PROXY_TARGET_PORT=8765
+ExecStart=/usr/bin/python3 /home/sam/projects/exam-calendar/tailscale_proxy.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
