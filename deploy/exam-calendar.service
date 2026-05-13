@@ -9,7 +9,7 @@ WorkingDirectory=/home/sam/projects/exam-calendar
 Environment=MOODLE_TRACKER_API=http://127.0.0.1:8000
 Environment=MOODLE_TRACKER_DIR=/home/sam/projects/moodle-tracker
 Environment=EXAM_CALENDAR_TZ=America/Argentina/Buenos_Aires
-ExecStart=/usr/local/bin/uvicorn server:app --host 127.0.0.1 --port 8765
+ExecStart=/home/sam/.hermes/hermes-agent/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8765
 Restart=on-failure
 RestartSec=5
 
