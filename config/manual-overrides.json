@@ -1,0 +1,10 @@
+{
+  "overrides": [
+    {
+      "id": "calc-2026-05-13-primer-parcial",
+      "status": "skipped",
+      "note": "Skipped intentionally. Not a recuperatorio — this is the one Santiago said he wasn't presenting to."
+    }
+  ],
+  "extraEvents": []
+}

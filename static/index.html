@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>Exam Calendar</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="hero-topline">
+        <span class="eyebrow">Santiago's survival board</span>
+        <button class="local-badge refresh-badge" id="refreshEvents" title="Fetch fresh dates from the local Moodle tracker">Refresh</button>
+      </div>
+      <h1>Exam Calendar</h1>
+      <p class="hero-copy">A mobile-first map of the next exams, quizzes, recuperatorios, and the horrible little clusters hiding in June.</p>
+      <div class="today-strip" id="todayStrip"></div>
+    </header>
+
+    <main>
+      <section class="panic-panel" id="panicPanel" aria-live="polite"></section>
+
+      <nav class="segmented" aria-label="Calendar views">
+        <button class="segment active" data-view="agenda" aria-pressed="true">Agenda</button>
+        <button class="segment" data-view="month" aria-pressed="false">Month</button>
+        <button class="segment" data-view="subjects" aria-pressed="false">Subjects</button>
+      </nav>
+
+      <section id="agendaView" class="view active-view">
+        <div class="section-heading">
+          <h2>Upcoming</h2>
+          <button class="tiny-button" id="togglePast">Show skipped</button>
+        </div>
+        <div id="agendaList" class="agenda-list"></div>
+        <div id="pastList" class="past-list hidden"></div>
+      </section>
+
+      <section id="monthView" class="view">
+        <div class="month-header">
+          <button class="icon-button" id="prevMonth" aria-label="Previous month">‹</button>
+          <h2 id="monthTitle"></h2>
+          <button class="icon-button" id="nextMonth" aria-label="Next month">›</button>
+        </div>
+        <div class="weekday-row" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <div id="monthGrid" class="month-grid"></div>
+        <div id="selectedDay" class="selected-day empty-state">Tap a marked day to inspect it.</div>
+      </section>
+
+      <section id="subjectsView" class="view">
+        <div class="section-heading">
+          <h2>Subjects</h2>
+          <span class="muted-small">confirmed + known unknowns</span>
+        </div>
+        <div id="subjectCards" class="subject-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
