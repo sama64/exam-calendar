@@ -374,6 +374,29 @@ h2 { font-size: 1.12rem; letter-spacing: -0.025em; }
   .day-cell { min-height: 76px; }
 }
 
+@media (min-width: 900px) {
+  .app-shell {
+    width: min(100%, 960px);
+    padding-inline: 24px;
+  }
+  .hero { padding: 26px 24px 22px; }
+  .hero-copy { max-width: 44rem; }
+  .panic-panel { grid-template-columns: minmax(0, 1fr) minmax(280px, 0.78fr); }
+}
+
+@media (min-width: 700px) and (max-height: 820px) {
+  .app-shell { padding-top: 18px; }
+  .hero { padding-block: 18px 16px; }
+  h1 {
+    margin-top: 12px;
+    font-size: clamp(2.8rem, 8vw, 4rem);
+  }
+  .hero-copy { margin-top: 10px; }
+  .today-strip { margin-top: 12px; }
+  .panic-panel { margin-top: 10px; }
+  .segmented { margin: 12px 0; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .event-card, .segment, .tiny-button, .icon-button, .day-cell { transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; }
   .event-card:hover, .day-cell:hover { transform: translateY(-1px); }
