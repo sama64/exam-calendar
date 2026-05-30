@@ -38,21 +38,42 @@ GET /api/events?refresh=true
 
 The frontend refresh button calls `GET /api/events?refresh=true`.
 
-## Autostart
+## Docker / subdomain deployment
 
-A systemd user service is installed as:
-
-```text
-~/.config/systemd/user/exam-calendar.service
-```
-
-Useful commands:
+The Docker setup keeps the service private to localhost for Caddy to reverse-proxy:
 
 ```bash
-systemctl --user status exam-calendar.service
-systemctl --user restart exam-calendar.service
-journalctl --user -u exam-calendar.service -f
+cd /home/sam/projects/exam-calendar
+docker compose up -d --build
+curl http://127.0.0.1:8765/api/health
 ```
+
+Security defaults in `docker-compose.yml`:
+
+- binds only to `127.0.0.1`, not the public interface
+- joins only the existing `moodle-tracker_default` Docker network and calls the tracker at `http://api:8000`
+- does **not** mount the Moodle tracker `.env` or S3/Moodle credentials
+- runs as a non-root user in a read-only container filesystem
+- drops Linux capabilities and enables `no-new-privileges`
+- adds small CPU/memory/pid/log limits
+
+Example Caddy reverse proxy:
+
+```caddyfile
+calendar.example.com {
+    reverse_proxy 127.0.0.1:8765
+}
+```
+
+If port 8765 is still occupied by the old systemd service, either stop it or run Docker on another localhost port:
+
+```bash
+EXAM_CALENDAR_PORT=8766 docker compose up -d --build
+```
+
+## Autostart
+
+Legacy systemd user service files still exist under `deploy/`, but Docker Compose is the safer path for subdomain exposure.
 
 ## Configuration
 

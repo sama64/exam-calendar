@@ -1,0 +1,38 @@
+services:
+  exam-calendar:
+    build:
+      context: .
+    image: exam-calendar:local
+    restart: unless-stopped
+    environment:
+      MOODLE_TRACKER_API: ${MOODLE_TRACKER_API:-http://api:8000}
+      EXAM_CALENDAR_CACHE_TTL: ${EXAM_CALENDAR_CACHE_TTL:-300}
+      EXAM_CALENDAR_YEAR: ${EXAM_CALENDAR_YEAR:-2026}
+      EXAM_CALENDAR_TZ: ${EXAM_CALENDAR_TZ:-America/Argentina/Buenos_Aires}
+      # Deliberately do not mount the Moodle tracker .env/secrets by default.
+      # The app reads extracted text through the tracker API.
+      MOODLE_TRACKER_DIR: /nonexistent
+    ports:
+      - "${EXAM_CALENDAR_BIND:-127.0.0.1}:${EXAM_CALENDAR_PORT:-8765}:8765"
+    networks:
+      - moodle-tracker
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 192m
+    cpus: "0.50"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  moodle-tracker:
+    external: true
+    name: ${MOODLE_TRACKER_NETWORK:-moodle-tracker_default}

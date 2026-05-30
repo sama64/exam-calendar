@@ -1,0 +1,31 @@
+sb.samsyntaxerror.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+	# optional hardening:
+	header {
+		x-frame-options "DENY"
+		x-content-type-options "nosniff"
+		referrer-policy "no-referrer"
+	}
+}
+
+sauron.samsyntaxerror.com {
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy 127.0.0.1:8090 {
+		transport http {
+			read_timeout 360s
+		}
+	}
+}
+
+calendar.samsyntaxerror.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8765
+	header {
+		x-frame-options "DENY"
+		x-content-type-options "nosniff"
+		referrer-policy "no-referrer"
+	}
+}

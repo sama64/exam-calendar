@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-import html
-import io
 import json
 import os
 import re
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
@@ -25,7 +21,6 @@ STATIC_DIR = APP_DIR / "static"
 CONFIG_DIR = APP_DIR / "config"
 CACHE_TTL_SECONDS = int(os.environ.get("EXAM_CALENDAR_CACHE_TTL", "300"))
 MOODLE_API_BASE = os.environ.get("MOODLE_TRACKER_API", "http://127.0.0.1:8000").rstrip("/")
-MOODLE_TRACKER_DIR = Path(os.environ.get("MOODLE_TRACKER_DIR", "/home/sam/projects/moodle-tracker"))
 CURRENT_YEAR = int(os.environ.get("EXAM_CALENDAR_YEAR", "2026"))
 LOCAL_TZ = ZoneInfo(os.environ.get("EXAM_CALENDAR_TZ", "America/Argentina/Buenos_Aires"))
 
@@ -77,44 +72,6 @@ def api_get(path: str, timeout: int = 20) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
-def load_dotenv(path: Path) -> dict[str, str]:
-    env: dict[str, str] = {}
-    if not path.exists():
-        return env
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        env[key] = value.strip().strip('"').strip("'")
-    return env
-
-
-def fetch_s3_bytes(storage_path: str) -> bytes:
-    import boto3
-
-    env = load_dotenv(MOODLE_TRACKER_DIR / ".env")
-    parsed = urlparse(storage_path)
-    client = boto3.client(
-        "s3",
-        endpoint_url=env.get("S3_ENDPOINT_URL"),
-        region_name=env.get("S3_REGION", "auto"),
-        aws_access_key_id=env.get("S3_ACCESS_KEY_ID"),
-        aws_secret_access_key=env.get("S3_SECRET_ACCESS_KEY"),
-    )
-    obj = client.get_object(Bucket=parsed.netloc, Key=parsed.path.lstrip("/"))
-    return obj["Body"].read()
-
-
-def extract_docx_text(data: bytes) -> str:
-    xml = zipfile.ZipFile(io.BytesIO(data)).read("word/document.xml").decode("utf-8", "ignore")
-    text = re.sub(r"</w:p>|</w:tr>", "\n", xml)
-    text = re.sub(r"<w:tab[^>]*/>", "\t", text)
-    text = re.sub(r"<[^>]+>", "", text)
-    text = html.unescape(text)
-    return re.sub(r"\n+", "\n", text)
-
-
 def item_text(item: dict[str, Any]) -> str:
     body = item.get("body_text") or ""
     if body.strip():
@@ -124,15 +81,12 @@ def item_text(item: dict[str, Any]) -> str:
 
 def get_artifact_text(item_id: int) -> str:
     content = api_get(f"/items/{item_id}/content", timeout=30)
+    best_text = ""
     for artifact in content.get("artifacts", []):
-        storage = artifact.get("storage_path")
-        filename = (artifact.get("filename") or "").lower()
-        mime = (artifact.get("mime_type") or "").lower()
-        if not storage:
-            continue
-        if filename.endswith(".docx") or "wordprocessingml" in mime:
-            return extract_docx_text(fetch_s3_bytes(storage))
-    return ""
+        candidate = artifact.get("extracted_text") or ""
+        if len(candidate) > len(best_text):
+            best_text = candidate
+    return best_text
 
 
 def normalize_spaces(text: str) -> str:
@@ -218,7 +172,7 @@ def discover_courses(courses: list[dict[str, Any]]) -> dict[str, int]:
     return mapping
 
 
-def select_schedule_item(snapshot: dict[str, Any], *needles: str) -> dict[str, Any] | None:
+def schedule_candidates(snapshot: dict[str, Any], *needles: str) -> list[dict[str, Any]]:
     candidates = []
     for item in snapshot.get("items", []):
         title = item.get("title") or ""
@@ -226,6 +180,11 @@ def select_schedule_item(snapshot: dict[str, Any], *needles: str) -> dict[str, A
         if all(needle.lower() in haystack for needle in needles):
             candidates.append(item)
     candidates.sort(key=lambda i: i.get("updated_at") or "", reverse=True)
+    return candidates
+
+
+def select_schedule_item(snapshot: dict[str, Any], *needles: str) -> dict[str, Any] | None:
+    candidates = schedule_candidates(snapshot, *needles)
     return candidates[0] if candidates else None
 
 
@@ -282,24 +241,49 @@ def extract_termo_events(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def extract_materiales_events(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
-    item = select_schedule_item(snapshot, "cronograma", "ciencia") or select_schedule_item(snapshot, "cronograma", "materiales")
+    candidates = schedule_candidates(snapshot, "cronograma", "ciencia") or schedule_candidates(snapshot, "cronograma", "materiales")
+    general_candidates = [item for item in candidates if "laboratorio" not in (item.get("title") or "").lower()]
+    item = (general_candidates or candidates or [None])[0]
     if not item:
         return []
     text = item_text(item)
     if not text.strip():
         text = get_artifact_text(item["id"])
-    source = source_for(item)
+    events = extract_materiales_events_from_text(text, source_for(item))
+    if events:
+        return events
+    return [make_event(event_id="mat-dates-unconfirmed", subject="mat", title="Parciales — latest cronogram could not be parsed", date=None, type_="unknown", status="unconfirmed", source=source_for(item), note="The latest Moodle cronogram exists, but the calendar could not extract exam dates from it. Do not rely on older cronogram versions silently.")]
+
+
+def extract_materiales_events_from_text(text: str, source: SourceRef) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(date: str | None, number: str) -> None:
+        if not date:
+            return
+        key = (date, number)
+        if key in seen:
+            return
+        seen.add(key)
+        title = f"Parcial {number}"
+        events.append(make_event(event_id=f"mat-{date}-parcial-{number}", subject="mat", title=title, date=date, type_="exam", status="confirmed", source=source))
+
+    normalized = normalize_spaces(text)
+    for match in re.finditer(r"(?:\(\s*)?(\d{1,2}-\d{1,2})(?:\s*\))?\s+PARCIAL\s+(\d+)", normalized, re.I):
+        add(parse_dash_date(match.group(1)), match.group(2))
+
+    # Fallback for table extraction that preserves one cell per line:
+    # date line -> PARCIAL N line.
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     current_date: str | None = None
     for line in lines:
         date = parse_dash_date(line) if re.search(r"\d{1,2}-\d{1,2}", line) else None
         if date:
             current_date = date
-        if current_date and re.fullmatch(r"PARCIAL\s+\d+", line, re.I):
-            number = re.search(r"\d+", line).group(0)  # type: ignore[union-attr]
-            title = f"Parcial {number}"
-            events.append(make_event(event_id=f"mat-{current_date}-parcial-{number}", subject="mat", title=title, date=current_date, type_="exam", status="confirmed", source=source))
+        match = re.fullmatch(r"PARCIAL\s+(\d+)", line, re.I)
+        if current_date and match:
+            add(current_date, match.group(1))
     return events
 
 
