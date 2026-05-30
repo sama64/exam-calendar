@@ -360,6 +360,50 @@ h2 { font-size: 1.12rem; letter-spacing: -0.025em; }
 
 .hidden { display: none; }
 
+/* Compact practical header: the calendar is a tool, not a movie poster. */
+.app-shell {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.hero {
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.hero::after {
+  content: none;
+}
+
+.hero-topline {
+  justify-content: space-between;
+}
+
+h1 {
+  margin: 0;
+  max-width: none;
+  font-size: clamp(1.35rem, 6vw, 2rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.today-strip {
+  margin-top: 10px;
+}
+
+.pill {
+  min-height: 28px;
+  font-size: 0.78rem;
+}
+
+.panic-panel {
+  margin-top: 10px;
+}
+
+.segmented {
+  margin: 12px 0;
+}
+
 @media (max-width: 380px) {
   .next-card { grid-template-columns: 1fr; }
   .countdown-big { min-height: 72px; }
@@ -402,3 +446,13 @@ h2 { font-size: 1.12rem; letter-spacing: -0.025em; }
   .event-card:hover, .day-cell:hover { transform: translateY(-1px); }
   .segment:active, .tiny-button:active, .icon-button:active { transform: scale(0.98); }
 }
+
+/* Final compact overrides must come last so mobile/short-screen media rules cannot re-inflate the header. */
+.app-shell { padding-top: max(10px, env(safe-area-inset-top)); }
+.hero { padding: 12px 14px; border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22); }
+.hero::after { content: none; }
+h1 { margin: 0; max-width: none; font-size: clamp(1.35rem, 6vw, 2rem); line-height: 1; letter-spacing: -0.04em; }
+.today-strip { margin-top: 10px; }
+.pill { min-height: 28px; font-size: 0.78rem; }
+.panic-panel { margin-top: 10px; grid-template-columns: 1fr; }
+.segmented { margin: 12px 0; }

@@ -56,8 +56,8 @@ function groupLabel(event) {
   const diff = daysBetween(today(), eventDate(event));
   if (diff <= 7) return "This week";
   if (diff <= 21) return "Next three weeks";
-  if (eventDate(event).getMonth() === 5) return "June boss rush";
-  return "July cleanup";
+  if (eventDate(event).getMonth() === 5) return "June";
+  return "July";
 }
 function subject(event) { return SUBJECTS[event.subject] || { name: event.subjectName || event.subject, color: "var(--muted)" }; }
 function statusText(status) {
@@ -127,7 +127,6 @@ function renderPanicPanel() {
     `;
     return;
   }
-  const rushWindow = events.filter(e => e.date && eventDate(e) >= localDate(2026,6,23) && eventDate(e) <= localDate(2026,6,27));
   document.getElementById("panicPanel").innerHTML = `
     <article class="next-card" style="--accent:${subject(next).color}">
       <div>
@@ -137,18 +136,13 @@ function renderPanicPanel() {
       </div>
       <div class="countdown-big"><div><span>${daysBetween(today(), eventDate(next))}</span><small>days</small></div></div>
     </article>
-    <article class="stress-card">
-      <div class="stress-title">⚠ Heavy week ahead</div>
-      <p class="stress-copy">${rushWindow.length} events between <b>Jun 23–27</b>. That's the danger zone. Not impossible — just not something to "future you" into oblivion.</p>
-    </article>
   `;
 }
 
 function eventCard(event) {
   const s = subject(event);
   const date = eventDate(event);
-  const sourceTitle = event.source?.title ? escapeHtml(event.source.title) : "local/manual";
-  const sourceUrl = event.source?.url;
+  const note = event.note && !event.note.startsWith("Pulled from ") ? event.note : "";
   return `
     <article class="event-card ${event.type} ${event.status}" style="--accent:${s.color}">
       <div class="subject-line">
@@ -161,11 +155,7 @@ function eventCard(event) {
         <span class="badge">${event.date ? timeLabel(event) : "not posted"}</span>
         <span class="badge countdown">${countdownLabel(event)}</span>
       </div>
-      ${event.note ? `<p class="event-note">${escapeHtml(event.note)}</p>` : ""}
-      <details class="source-details">
-        <summary>Source</summary>
-        ${sourceUrl ? `<a href="${sourceUrl}" target="_blank" rel="noreferrer">${sourceTitle}</a>` : `<span>${sourceTitle}</span>`}
-      </details>
+      ${note ? `<p class="event-note">${escapeHtml(note)}</p>` : ""}
     </article>
   `;
 }

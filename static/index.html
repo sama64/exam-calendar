@@ -6,17 +6,15 @@
   <meta name="theme-color" content="#0b1020" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
   <title>Exam Calendar</title>
-  <link rel="stylesheet" href="./styles.css?v=20260530-compact" />
+  <link rel="stylesheet" href="./styles.css?v=20260530-minimal2" />
 </head>
 <body>
   <div class="app-shell">
     <header class="hero">
       <div class="hero-topline">
-        <span class="eyebrow">Santiago's survival board</span>
+        <h1>Calendar</h1>
         <button class="local-badge refresh-badge" id="refreshEvents" title="Fetch fresh dates from the local Moodle tracker">Refresh</button>
       </div>
-      <h1>Exam Calendar</h1>
-      <p class="hero-copy">A mobile-first map of the next exams, quizzes, recuperatorios, and the horrible little clusters hiding in June.</p>
       <div class="today-strip" id="todayStrip"></div>
     </header>
 
@@ -61,6 +59,6 @@
     </main>
   </div>
 
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20260530-minimal3"></script>
 </body>
 </html>
