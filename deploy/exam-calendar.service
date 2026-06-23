@@ -1,5 +1,5 @@
 [Unit]
-Description=Santiago Exam Calendar (localhost only)
+Description=Exam Calendar (localhost only)
 After=default.target
 Wants=default.target
 

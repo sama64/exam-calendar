@@ -1,6 +1,6 @@
 # Exam Calendar
 
-A mobile-first, localhost-only academic calendar for Santiago's Moodle dates.
+A mobile-first, localhost-only academic calendar for Moodle dates.
 
 The app is now a small FastAPI service. The frontend does **not** hardcode exam dates: it calls `/api/events`, and the backend derives events from the local Moodle tracker at `http://127.0.0.1:8000`.
 

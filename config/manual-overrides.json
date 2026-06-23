@@ -3,7 +3,7 @@
     {
       "id": "calc-2026-05-13-primer-parcial",
       "status": "skipped",
-      "note": "Skipped intentionally. Not a recuperatorio — this is the one Santiago said he wasn't presenting to."
+      "note": "Skipped intentionally. Not a recuperatorio — this is the one the student said they weren't presenting to."
     }
   ],
   "extraEvents": [
@@ -17,10 +17,10 @@
       "endTime": null,
       "type": "exam",
       "status": "unconfirmed",
-      "note": "Tentative date reported by Santiago; take with a grain of salt until Moodle/professor confirms it.",
+      "note": "Tentative date reported manually; take with a grain of salt until Moodle/professor confirms it.",
       "source": {
         "itemId": null,
-        "title": "local/manual — tentative date from Santiago",
+        "title": "local/manual — tentative date",
         "url": null
       }
     }
