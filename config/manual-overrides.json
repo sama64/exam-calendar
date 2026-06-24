@@ -8,6 +8,23 @@
   ],
   "extraEvents": [
     {
+      "id": "mec-2026-06-26-parcial-tentative",
+      "subject": "mec",
+      "subjectName": "Mecánica",
+      "title": "Parcial — fecha tentativa",
+      "date": "2026-06-26",
+      "startTime": null,
+      "endTime": null,
+      "type": "exam",
+      "status": "unconfirmed",
+      "note": "Tentative date reported manually; take with a grain of salt until Moodle/professor confirms it.",
+      "source": {
+        "itemId": null,
+        "title": "local/manual — tentative date",
+        "url": null
+      }
+    },
+    {
       "id": "mat-2026-06-30-recuperatorio-parcial-2",
       "subject": "mat",
       "subjectName": "Materiales",
