@@ -6,5 +6,23 @@
       "note": "Skipped intentionally. Not a recuperatorio — this is the one the student said they weren't presenting to."
     }
   ],
-  "extraEvents": []
+  "extraEvents": [
+    {
+      "id": "mat-2026-06-30-recuperatorio-parcial-2",
+      "subject": "mat",
+      "subjectName": "Materiales",
+      "title": "Recuperatorio · Parcial 2",
+      "date": "2026-06-30",
+      "startTime": null,
+      "endTime": null,
+      "type": "recovery",
+      "status": "recovery",
+      "note": "Manually reported recuperatorio date; verify against Moodle/professor if anything changes.",
+      "source": {
+        "itemId": null,
+        "title": "local/manual — recuperatorio date",
+        "url": null
+      }
+    }
+  ]
 }
