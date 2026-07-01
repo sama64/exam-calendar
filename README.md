@@ -9,7 +9,7 @@ The app is now a small FastAPI service. The frontend does **not** hardcode exam 
 - `/deadlines/upcoming` for quiz/deadline items.
 - Course snapshots for schedule PDFs/docs.
 - Stored Moodle artifacts from the tracker when extraction failed, e.g. DOCX cronogramas in R2/S3.
-- Local `config/manual-overrides.json` only for user-specific context, like marking the skipped Cálculo I first parcial as skipped.
+- Local `config/manual-overrides.json` only for user-specific context, like ignoring a subject the student is no longer taking or marking a specific event as skipped.
 
 ## Safe local run
 

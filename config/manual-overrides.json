@@ -1,4 +1,7 @@
 {
+  "ignoredSubjects": [
+    "calc"
+  ],
   "overrides": [
     {
       "id": "calc-2026-05-13-primer-parcial",

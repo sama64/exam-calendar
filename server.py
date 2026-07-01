@@ -310,6 +310,9 @@ def apply_manual_overrides(events: list[dict[str, Any]]) -> list[dict[str, Any]]
     if not path.exists():
         return events
     data = json.loads(path.read_text())
+    ignored_subjects = set(data.get("ignoredSubjects", []))
+    if ignored_subjects:
+        events = [event for event in events if event.get("subject") not in ignored_subjects]
     by_id = {event["id"]: event for event in events}
     for override in data.get("overrides", []):
         target = by_id.get(override.get("id"))
