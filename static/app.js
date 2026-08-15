@@ -1,9 +1,6 @@
-const SUBJECTS = {
-  calc: { name: "Cálculo I", color: "var(--calc)" },
-  mat: { name: "Materiales", color: "var(--mat)" },
-  termo: { name: "Termodinámica", color: "var(--termo)" },
-  mec: { name: "Mecánica", color: "var(--mec)" },
-};
+const SUBJECT_COLORS = ["var(--calc)", "var(--mec)", "var(--mat)", "var(--termo)"];
+let subjects = {};
+let activeSubjectKeys = [];
 
 let events = [];
 let apiMeta = null;
@@ -56,10 +53,9 @@ function groupLabel(event) {
   const diff = daysBetween(today(), eventDate(event));
   if (diff <= 7) return "This week";
   if (diff <= 21) return "Next three weeks";
-  if (eventDate(event).getMonth() === 5) return "June";
-  return "July";
+  return fmtMonth.format(eventDate(event));
 }
-function subject(event) { return SUBJECTS[event.subject] || { name: event.subjectName || event.subject, color: "var(--muted)" }; }
+function subject(event) { return subjects[event.subject] || { name: event.subjectName || event.subject, color: "var(--muted)" }; }
 function statusText(status) {
   return ({ confirmed: "confirmed", recovery: "recuperatorio", skipped: "skipped", due: "deadline", unconfirmed: "unconfirmed" })[status] || status;
 }
@@ -73,7 +69,16 @@ async function loadEvents({ refresh = false } = {}) {
   }
   events = payload.events || [];
   apiMeta = payload;
-  if (!events.length) throw new Error("Tracker returned no calendar events.");
+  const roster = payload.subjects || [];
+  activeSubjectKeys = roster.map(item => item.key);
+  subjects = Object.fromEntries(roster.map((item, index) => [
+    item.key,
+    {
+      name: item.name,
+      color: SUBJECT_COLORS[index % SUBJECT_COLORS.length],
+      moodleMatched: item.moodleMatched,
+    },
+  ]));
   render();
 }
 
@@ -216,23 +221,24 @@ function showSelectedDay(dateString) {
 }
 
 function renderSubjects() {
-  const keys = Object.keys(SUBJECTS);
-  document.getElementById("subjectCards").innerHTML = keys.map(key => {
+  document.getElementById("subjectCards").innerHTML = activeSubjectKeys.map(key => {
+    const metadata = subjects[key];
     const subjectEvents = events.filter(e => e.subject === key);
     const upcoming = subjectEvents.filter(e => e.date && e.status !== "skipped" && daysBetween(today(), eventDate(e)) >= 0).sort(byDate);
     const unknown = subjectEvents.filter(e => e.status === "unconfirmed");
     const next = upcoming[0];
     return `
-      <article class="subject-card" style="--accent:${SUBJECTS[key].color}">
-        <h3>${SUBJECTS[key].name}</h3>
+      <article class="subject-card" style="--accent:${metadata.color}">
+        <h3>${escapeHtml(metadata.name)}</h3>
         <div class="subject-stats">
           <span class="badge">${upcoming.length} upcoming</span>
           ${unknown.length ? `<span class="badge unconfirmed">dates missing</span>` : ""}
+          ${!metadata.moodleMatched ? `<span class="badge unconfirmed">Moodle shell pending</span>` : ""}
         </div>
         <ul>
           ${next ? `<li>Next: ${escapeHtml(next.title)} · ${fmtShort.format(eventDate(next))}</li>` : ""}
           ${unknown.map(e => `<li>${escapeHtml(e.title)}: ${escapeHtml(e.note || "No date posted.")}</li>`).join("")}
-          ${!next && !unknown.length ? `<li>No active confirmed dates.</li>` : ""}
+          ${!next && !unknown.length ? `<li>No active official dates.</li>` : ""}
         </ul>
       </article>
     `;

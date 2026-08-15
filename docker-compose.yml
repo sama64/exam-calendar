@@ -9,11 +9,14 @@ services:
       EXAM_CALENDAR_CACHE_TTL: ${EXAM_CALENDAR_CACHE_TTL:-300}
       EXAM_CALENDAR_YEAR: ${EXAM_CALENDAR_YEAR:-2026}
       EXAM_CALENDAR_TZ: ${EXAM_CALENDAR_TZ:-America/Argentina/Buenos_Aires}
+      ACADEMIC_STATE_PATH: /data/academic-state.yaml
       # Deliberately do not mount the Moodle tracker .env/secrets by default.
       # The app reads extracted text through the tracker API.
       MOODLE_TRACKER_DIR: /nonexistent
     ports:
       - "${EXAM_CALENDAR_BIND:-127.0.0.1}:${EXAM_CALENDAR_PORT:-8765}:8765"
+    volumes:
+      - "${ACADEMIC_STATE_PATH:-/home/sam/projects/academic-record/data/academic-state.yaml}:/data/academic-state.yaml:ro"
     networks:
       - moodle-tracker
     read_only: true

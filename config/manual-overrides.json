@@ -1,48 +1,6 @@
 {
-  "ignoredSubjects": [
-    "calc"
-  ],
-  "overrides": [
-    {
-      "id": "calc-2026-05-13-primer-parcial",
-      "status": "skipped",
-      "note": "Skipped intentionally. Not a recuperatorio — this is the one the student said they weren't presenting to."
-    }
-  ],
-  "extraEvents": [
-    {
-      "id": "mec-2026-06-26-parcial-tentative",
-      "subject": "mec",
-      "subjectName": "Mecánica",
-      "title": "Parcial — fecha tentativa",
-      "date": "2026-06-26",
-      "startTime": null,
-      "endTime": null,
-      "type": "exam",
-      "status": "unconfirmed",
-      "note": "Tentative date reported manually; take with a grain of salt until Moodle/professor confirms it.",
-      "source": {
-        "itemId": null,
-        "title": "local/manual — tentative date",
-        "url": null
-      }
-    },
-    {
-      "id": "mat-2026-06-30-recuperatorio-parcial-2",
-      "subject": "mat",
-      "subjectName": "Materiales",
-      "title": "Recuperatorio · Parcial 2",
-      "date": "2026-06-30",
-      "startTime": null,
-      "endTime": null,
-      "type": "recovery",
-      "status": "recovery",
-      "note": "Manually reported recuperatorio date; verify against Moodle/professor if anything changes.",
-      "source": {
-        "itemId": null,
-        "title": "local/manual — recuperatorio date",
-        "url": null
-      }
-    }
-  ]
+  "academicPeriod": "2026-2C",
+  "ignoredSubjects": [],
+  "overrides": [],
+  "extraEvents": []
 }

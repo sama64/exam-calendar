@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -23,23 +24,37 @@ CACHE_TTL_SECONDS = int(os.environ.get("EXAM_CALENDAR_CACHE_TTL", "300"))
 MOODLE_API_BASE = os.environ.get("MOODLE_TRACKER_API", "http://127.0.0.1:8000").rstrip("/")
 CURRENT_YEAR = int(os.environ.get("EXAM_CALENDAR_YEAR", "2026"))
 LOCAL_TZ = ZoneInfo(os.environ.get("EXAM_CALENDAR_TZ", "America/Argentina/Buenos_Aires"))
+ACADEMIC_STATE_PATH = Path(
+    os.environ.get(
+        "ACADEMIC_STATE_PATH",
+        "/home/sam/projects/academic-record/data/academic-state.yaml",
+    )
+)
 
 app = FastAPI(title="Exam Calendar", version="1.0.0")
 
 _cache: dict[str, Any] = {"at": 0.0, "payload": None}
 
-SUBJECT_KEYS = {
-    "Cálculo I": "calc",
-    "Ciencia y Tecnología de los Materiales": "mat",
-    "Termodinámica": "termo",
-    "Mecánica de los Materiales": "mec",
-}
-
 SUBJECT_NAMES = {
     "calc": "Cálculo I",
     "mat": "Materiales",
     "termo": "Termodinámica",
-    "mec": "Mecánica",
+    "mec": "Mecánica de los Materiales",
+}
+
+SUBJECT_PROFILES = {
+    "calculo i": {
+        "key": "calc",
+        "display_name": "Cálculo I",
+        "moodle_aliases": ["calculo i"],
+        "extractor": "calculo",
+    },
+    "mecanica de los materiales": {
+        "key": "mec",
+        "display_name": "Mecánica de los Materiales",
+        "moodle_aliases": ["mecanica de los materiales"],
+        "extractor": "mecanica",
+    },
 }
 
 MONTHS_ES = {
@@ -162,13 +177,85 @@ def make_event(
     }
 
 
-def discover_courses(courses: list[dict[str, Any]]) -> dict[str, int]:
+def normalize_name(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value or "")
+    ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", ascii_text.lower()).strip()
+
+
+def subject_key(subject: dict[str, Any]) -> str:
+    profile = SUBJECT_PROFILES.get(normalize_name(subject.get("name") or ""))
+    if profile:
+        return profile["key"]
+    code = normalize_name(str(subject.get("code") or subject.get("id") or "subject"))
+    return code.replace(" ", "-")
+
+
+def active_academic_subjects() -> tuple[str | None, list[dict[str, Any]]]:
+    """Load the active roster and period from the canonical academic record."""
+    import yaml
+
+    state = yaml.safe_load(ACADEMIC_STATE_PATH.read_text(encoding="utf-8")) or {}
+    active: list[dict[str, Any]] = []
+    periods: list[str] = []
+    for raw in state.get("subjects", []):
+        if raw.get("status") != "in_course":
+            continue
+        events = raw.get("events") or []
+        subject_periods = [
+            str(event["academic_period"])
+            for event in events
+            if event.get("type") == "En curso" and event.get("academic_period")
+        ]
+        period = subject_periods[-1] if subject_periods else None
+        if period:
+            periods.append(period)
+        key = subject_key(raw)
+        profile = SUBJECT_PROFILES.get(normalize_name(raw.get("name") or ""), {})
+        name = profile.get("display_name") or raw.get("name") or key
+        SUBJECT_NAMES[key] = name
+        active.append(
+            {
+                "key": key,
+                "name": name,
+                "code": str(raw.get("code") or ""),
+                "academicPeriod": period,
+                "extractor": profile.get("extractor"),
+                "moodleAliases": profile.get("moodle_aliases") or [normalize_name(name)],
+            }
+        )
+    current_period = max(periods) if periods else None
+    return current_period, active
+
+
+def period_tokens(period: str | None) -> list[str]:
+    match = re.fullmatch(r"(\d{4})-(\d)C", period or "")
+    if not match:
+        return []
+    year, number = match.groups()
+    ordinal = {"1": "1er", "2": "2do"}.get(number, number)
+    return [normalize_name(period or ""), normalize_name(f"{ordinal} Cuat. de {year}"), normalize_name(f"{number} cuatrimestre {year}")]
+
+
+def discover_courses(
+    courses: list[dict[str, Any]],
+    active_subjects: list[dict[str, Any]],
+    current_period: str | None,
+) -> dict[str, int]:
+    """Match active subjects to Moodle, preferring the current-period shell."""
     mapping: dict[str, int] = {}
-    for course in courses:
-        name = course.get("display_name") or ""
-        for needle, key in SUBJECT_KEYS.items():
-            if needle.lower() in name.lower():
-                mapping[key] = course["id"]
+    tokens = period_tokens(current_period)
+    for subject in active_subjects:
+        candidates: list[tuple[int, int]] = []
+        aliases = [normalize_name(alias) for alias in subject.get("moodleAliases", [])]
+        for course in courses:
+            name = normalize_name(course.get("display_name") or "")
+            if not any(alias and alias in name for alias in aliases):
+                continue
+            current_bonus = 100 if any(token and token in name for token in tokens) else 0
+            candidates.append((current_bonus + int(course.get("id") or 0), int(course["id"])))
+        if candidates:
+            mapping[subject["key"]] = max(candidates)[1]
     return mapping
 
 
@@ -197,6 +284,8 @@ def extract_calculo_events(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     if not item:
         return []
     text = item_text(item)
+    if not text.strip():
+        text = get_artifact_text(item["id"])
     source = source_for(item)
     events: list[dict[str, Any]] = []
     patterns = [
@@ -214,6 +303,30 @@ def extract_calculo_events(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         date = parse_slash_date(match.group(1))
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
         events.append(make_event(event_id=f"calc-{date}-{slug}", subject="calc", title=title, date=date, type_=type_, status=status, source=source))
+    return events
+
+
+def extract_mecanica_events(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract source-backed current-period Mecánica assessments."""
+    events: list[dict[str, Any]] = []
+    for item in snapshot.get("items", []):
+        title = normalize_spaces(item.get("title") or "")
+        match = re.fullmatch(r"1[º°]?\s*Parcial\s+(\d{1,2}/\d{1,2})", title, re.I)
+        if not match:
+            continue
+        event_date = parse_slash_date(match.group(1))
+        events.append(
+            make_event(
+                event_id=f"mec-{event_date}-primer-parcial",
+                subject="mec",
+                title="Primer Parcial",
+                date=event_date,
+                type_="exam",
+                status="unconfirmed",
+                source=source_for(item),
+                note="Date appears in the current 2C gradebook title; awaiting a cronograma or professor announcement.",
+            )
+        )
     return events
 
 
@@ -295,7 +408,7 @@ def extract_deadline_events(upcoming: list[dict[str, Any]], courses_by_id: dict[
         subject = courses_by_id.get(item.get("course_id"))
         if not due_at or not subject:
             continue
-        if not re.search(r"cuestionario|quiz", title, re.I):
+        if not re.search(r"cuestionario|quiz|tarea|trabajo|tp|laboratorio|entrega", title, re.I):
             continue
         dt = datetime.fromisoformat(due_at.replace("Z", "+00:00")).astimezone(LOCAL_TZ)
         date = dt.date().isoformat()
@@ -305,11 +418,17 @@ def extract_deadline_events(upcoming: list[dict[str, Any]], courses_by_id: dict[
     return events
 
 
-def apply_manual_overrides(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def apply_manual_overrides(
+    events: list[dict[str, Any]], current_period: str | None
+) -> list[dict[str, Any]]:
     path = CONFIG_DIR / "manual-overrides.json"
     if not path.exists():
         return events
     data = json.loads(path.read_text())
+    # Overrides are period-scoped. A forgotten old file becomes inert instead
+    # of leaking last cuatrimestre's exceptions into the new calendar.
+    if data.get("academicPeriod") != current_period:
+        return events
     ignored_subjects = set(data.get("ignoredSubjects", []))
     if ignored_subjects:
         events = [event for event in events if event.get("subject") not in ignored_subjects]
@@ -338,35 +457,47 @@ def dedupe_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_events_payload() -> dict[str, Any]:
     health = api_get("/health", timeout=10)
     courses = api_get("/courses", timeout=20)
-    course_map = discover_courses(courses)
+    current_period, active_subjects = active_academic_subjects()
+    course_map = discover_courses(courses, active_subjects, current_period)
     courses_by_id = {course_id: subject for subject, course_id in course_map.items()}
     events: list[dict[str, Any]] = []
     extraction_errors: list[dict[str, str]] = []
+    extractor_registry = {
+        "calculo": extract_calculo_events,
+        "mecanica": extract_mecanica_events,
+    }
 
-    for subject, extractor in [("calc", extract_calculo_events), ("termo", extract_termo_events), ("mat", extract_materiales_events)]:
-        course_id = course_map.get(subject)
+    for subject in active_subjects:
+        key = subject["key"]
+        course_id = course_map.get(key)
+        subject["courseId"] = course_id
+        subject["moodleMatched"] = course_id is not None
         if not course_id:
-            extraction_errors.append({"subject": subject, "error": "course not found"})
+            extraction_errors.append({"subject": key, "error": "active subject has no current Moodle course match"})
+            continue
+        extractor = extractor_registry.get(subject.get("extractor"))
+        if not extractor:
+            # Generic deadlines still work for new subjects. A specialized
+            # parser is only needed for dates buried in cátedra documents.
             continue
         try:
             snapshot = api_get(f"/courses/{course_id}/snapshot", timeout=30)
             events.extend(extractor(snapshot))
         except Exception as exc:  # keep the app useful even if one course fails
-            extraction_errors.append({"subject": subject, "error": str(exc)})
+            extraction_errors.append({"subject": key, "error": str(exc)})
 
     try:
         events.extend(extract_deadline_events(api_get("/deadlines/upcoming", timeout=20), courses_by_id))
     except Exception as exc:
         extraction_errors.append({"subject": "deadlines", "error": str(exc)})
 
-    if "mec" in course_map:
-        events.append(make_event(event_id="mec-dates-unconfirmed", subject="mec", title="Parciales — dates not confirmed", date=None, type_="unknown", status="unconfirmed", source=None, note="Moodle has gradebook labels but no reliable 1C 2026 schedule document yet."))
-
-    events = apply_manual_overrides(dedupe_events(events))
+    events = apply_manual_overrides(dedupe_events(events), current_period)
     generated_at = datetime.now(timezone.utc).isoformat()
     return {
         "generatedAt": generated_at,
         "cacheTtlSeconds": CACHE_TTL_SECONDS,
+        "academicPeriod": current_period,
+        "subjects": active_subjects,
         "tracker": {"baseUrl": MOODLE_API_BASE, "health": health},
         "events": events,
         "errors": extraction_errors,
